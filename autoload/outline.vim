@@ -120,7 +120,7 @@ function! s:output_buffer(data, conf) abort " {{{
   silent % delete _
   silent put = data
   silent 1 delete _
-  setlocal nomodifiable
+  setlocal nomodifiable nomodified
 endfunction " }}}
 
 function! s:output(data, conf) abort " {{{
