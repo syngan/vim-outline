@@ -76,24 +76,22 @@ function! outline#preview_or_jmp(preview) abort " {{{
   endtry
 endfunction " }}}
 
-function! s:set_local(ft) abort " {{{
+function! s:set_local() abort " {{{
   nnoremap <buffer> q <C-w>c
   nnoremap <silent> <buffer> <CR> :<c-u>call outline#preview_or_jmp(0)<CR>
   nnoremap <silent> <buffer> p    :<c-u>call outline#preview_or_jmp(1)<CR>
   nnoremap <silent> <buffer> <C-l> :<c-u>call outline#reflesh()<CR>
   setlocal bh=hide bt=nofile ff=unix fdm=manual
   setlocal noswapfile nobuflisted nomodifiable
-  execute 'setlocal ft='. a:ft
 endfunction " }}}
 
 function! s:open_window() abort " {{{
   let sp = s:get('split')
   let name = s:get('bufname')
   if !bufexists(name)
-    let ft = &ft
     execute sp 'split'
     edit `=name`
-    call s:set_local(ft)
+    call s:set_local()
     return
   endif
   let name_ = '^' . substitute(name, '[', '\\[', 'g') . '$'
@@ -107,6 +105,7 @@ endfunction " }}}
 
 function! s:output_buffer(data, conf) abort " {{{
   let winnr = win_getid()
+  let ft = &ft
   call s:open_window()
 
   let data = []
@@ -121,6 +120,7 @@ function! s:output_buffer(data, conf) abort " {{{
   silent put = data
   silent 1 delete _
   setlocal nomodifiable nomodified
+  execute 'setlocal ft='. ft
 endfunction " }}}
 
 function! s:output(data, conf) abort " {{{
