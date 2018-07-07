@@ -42,6 +42,7 @@ function! s:parse_ctags(tempfiles) abort " {{{
     let idx += len(d.filename) + 1
     let d.kind = line[-1:]
     let d.text = matchstr(line, '\/^\zs[^\t]*\ze\$\/;', idx)
+    let d.text = substitute(d.text, '\\\\', '\\', 'g')
     let line = liness[1][i]
     let d.lnum = str2nr(matchstr(line, '^[^\t]*\t[^\t]*\t\zs\d*\ze;"'))
     if d.text !~# '^\s*$'
