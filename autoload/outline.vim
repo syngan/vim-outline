@@ -16,6 +16,10 @@ let s:def['python'] = {'kinds': '+cfm-vIixzl'}
 let s:def['tex'] = {'kinds': '+csubl-pPGi', 'files': '*.tex', 'sort': function('outline#tex#sort')}
 let s:def['vim'] = {'kinds': '+acf-vmn'}
 
+function! outline#msg(mesg) abort " {{{
+  echo 'outline: ' . a:mesg
+endfunction " }}}
+
 function! s:debug(mes) abort " {{{
   if s:get('debug')
     silent! call vimconsole#log(printf('%s: %s', strftime("%T"), a:mes))
@@ -91,67 +95,6 @@ function! outline#reflesh() abort " {{{
   endtry
 endfunction " }}}
 
-function! outline#preview_or_jmp(preview) abort " {{{
-  let winnr = win_getid()
-  let info = b:outline_data[line('.') - 1]
-  try
-    call win_gotoid(b:outline_winid)
-    execute info.lnum
-    execute 'normal!' 'zz'
-  finally
-    if a:preview
-      call win_gotoid(winnr)
-    endif
-  endtry
-endfunction " }}}
-
-function! s:set_local() abort " {{{
-  nnoremap <buffer> q <C-w>c
-  nnoremap <silent> <buffer> <CR> :<c-u>call outline#preview_or_jmp(0)<CR>
-  nnoremap <silent> <buffer> p    :<c-u>call outline#preview_or_jmp(1)<CR>
-  nnoremap <silent> <buffer> <C-l> :<c-u>call outline#reflesh()<CR>
-  setlocal bh=hide bt=nofile ff=unix fdm=manual
-  setlocal noswapfile nobuflisted nomodifiable
-endfunction " }}}
-
-function! s:open_window() abort " {{{
-  let sp = s:get('split')
-  let name = s:get('bufname')
-  if !bufexists(name)
-    execute sp 'split'
-    edit `=name`
-    call s:set_local()
-    return
-  endif
-  let name_ = '^' . substitute(name, '[', '\\[', 'g') . '$'
-  if bufwinnr(name_) != -1
-    execute bufwinnr(name_) 'wincmd w'
-  else
-    execute sp 'split'
-    execute 'buffer' bufnr(name_)
-  endif
-endfunction " }}}
-
-function! s:output_buffer(data, conf) abort " {{{
-  let winnr = win_getid()
-  let ft = &ft
-  call s:open_window()
-
-  let data = []
-  for d in a:data
-    call add(data, printf('%4d: %s', d.lnum, d.text))
-  endfor
-  let b:outline_winid = winnr
-  let b:outline_data = a:data
-  let b:outline_conf = a:conf
-  setlocal modifiable
-  silent % delete _
-  silent put = data
-  silent 1 delete _
-  setlocal nomodifiable nomodified
-  execute 'setlocal ft='. ft
-endfunction " }}}
-
 function! s:output(data, conf) abort " {{{
   " data -- a list of dict
   " see :h setqflist()
@@ -161,7 +104,7 @@ function! s:output(data, conf) abort " {{{
   elseif outputter == 'loclist'
     return setloclist(s:get('nr'), a:data, 'r')
   else
-    return s:output_buffer(a:data, a:conf)
+    return outline#buffer#output(a:data, a:conf, s:get('split'), s:get('bufname'))
   endif
 endfunction " }}}
 
