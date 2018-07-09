@@ -11,9 +11,13 @@ let s:def['_'] = {
       \ 'dir': '%:h', 'files': '%',
       \ 'nr': 0,
       \ 'kinds': '',
-      \ 'cmdopt': ''}
+      \ 'cmdopt': '',
+      \ 'format': '%l: %m'}
 let s:def['python'] = {'kinds': '+cfm-vIixzl'}
-let s:def['tex'] = {'kinds': '+csubl-pPGi', 'files': '*.tex', 'sort': function('outline#tex#sort')}
+let s:def['tex'] = {'kinds': '+csubl-pPGi', 'files': '*.tex', 'format': '%f:%l: %m'}
+if has('python3')
+  let s:def['tex']['sort'] = function('outline#tex#sort')
+endif
 let s:def['vim'] = {'kinds': '+acf-vmn'}
 
 function! outline#msg(mesg) abort " {{{
@@ -34,7 +38,7 @@ function! s:get(key) abort " {{{
       endif
     endfor
   endfor
-  throw 'unknown key: ' . a:key
+  throw 'outline: unknown key: ' . a:key
 endfunction " }}}
 
 function! s:has(key) abort " {{{
@@ -48,10 +52,23 @@ function! s:has(key) abort " {{{
   return 0
 endfunction " }}}
 
+function! s:format(d, format) abort " {{{
+  let t = a:format
+  let t = substitute(t, '%k', a:d.kind, 'g')
+  let t = substitute(t, '%l', a:d.lnum, 'g')
+  let t = substitute(t, '%m', a:d.text, 'g')
+  let t = substitute(t, '%f', fnamemodify(a:d.filename, ':t'), 'g')
+  let t = substitute(t, '%F', fnamemodify(a:d.filename, ':p'), 'g')
+  return t
+endfunction " }}}
+
 function! s:parse_ctags(tempfiles) abort " {{{
   let tempfiles = a:tempfiles
   let ret = []
   let liness = [readfile(tempfiles[0][0]), readfile(tempfiles[1][0])]
+
+  let format = s:get('format')
+
   for i in range(len(liness[0]))
     let line = liness[0][i]
     if line[0] ==# '!'
@@ -67,17 +84,17 @@ function! s:parse_ctags(tempfiles) abort " {{{
     let m = matchlist(line, '^.*\t\(\f\+\)\t/\^\(.*\)/;"\t\(\k\)')
     if len(m) == 0
       call s:debug(line)
-      throw 'unmatch'
+      throw 'outline: unmatch'
     endif
-    let d = {}
-    let d.filename = m[1]
-    let d.text = substitute(m[2], '\\\\', '\\', 'g')
-    let d.text = substitute(d.text, '\$$', '', '')
-    let d.kind = m[3]
-    let line = liness[1][i]
-    let tsv = split(line, '\t')
-    let d.lnum = str2nr(matchstr(tsv[2], '^\d\+\ze;"'))
-    if d.text !~# '^\s*$'
+    if m[2] !~# '^\s*$'
+      let d = {}
+      let d.filename = m[1]
+      let d.text = substitute(m[2], '\\\\', '\\', 'g')
+      let d.text = substitute(d.text, '\$$', '', '')
+      let d.kind = m[3]
+      let tsv = split(liness[1][i], '\t')
+      let d.lnum = str2nr(matchstr(tsv[2], '^\d\+\ze;"'))
+      let d.ftxt = s:format(d, format)
       let ret += [d]
     endif
   endfor
@@ -148,8 +165,14 @@ function! s:stol(str) " {{{
   let str = a:str
   while str !~# '^\s*$'
     let str = matchstr(str, '^\s*\zs.*$')
+    let key = matchstr(str, '^-\zs[a-z][a-z_]*\ze=')
+    if key == ''
+      break
+    endif
+    let str = str[strlen(key) + 2: ]
     if str[0] == "'"
       let arg = matchstr(str, '\v''\zs[^'']*\ze''')
+      echo arg
       let str = str[strlen(arg) + 2 :]
     elseif str[0] == '"'
       let arg = matchstr(str, '\v"\zs[^"]*\ze"')
@@ -158,45 +181,34 @@ function! s:stol(str) " {{{
       let arg = matchstr(str, '\S\+')
       let str = str[strlen(arg) + 0 :]
     endif
-    call add(list, arg)
+    call add(list, [key, arg])
   endwhile
 
-  return list
+  return [list, str]
 endfunction " }}}
 
 function! s:parse_cmdline(str) abort " {{{
-  let s = s:stol(a:str)
+  let [s, rest] = s:stol(a:str)
+  if rest !~# '^\s*$'
+    echomsg 'outline: invalid key: ' . rest
+    return [{}, []]
+  endif
   let s:arg_conf = {}
   let conf = {}
-  let brk = -1
   for i in range(len(s))
-    if s[i] == '--'
-      let brk = i + 1
-      break
-    endif
-    let l = matchlist(s[i], '^-\([a-z][a-z_]\+\)=\(.\+\)$')
-    if l == []
-      let brk = i
-      break
-    endif
-    let conf[l[1]] = l[2]
+    let conf[s[i][0]] = s[i][1]
     try
-      call s:get(l[1])
+      call s:get(s[i][0])
     catch
-      echomsg 'invalid key: ' . l[1]
+      echomsg 'outline: invalid key: ' . s[i][0]
       return [{}, []]
     endtry
   endfor
-  if brk == -1
-    let s = []
-  else
-    let s = s[brk : ]
-  endif
-  return [conf, s]
+  return conf
 endfunction " }}}
 
 function! outline#command(qargs) abort " {{{
-  let [conf, _] = s:parse_cmdline(a:qargs)
+  let conf = s:parse_cmdline(a:qargs)
   return outline#do(conf)
 endfunction " }}}
 

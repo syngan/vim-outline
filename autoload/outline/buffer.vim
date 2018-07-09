@@ -61,7 +61,7 @@ function! outline#buffer#output(data, conf, split, bufname) abort " {{{
 
   let data = []
   for d in a:data
-    call add(data, printf('%4d: %s', d.lnum, d.text))
+    call add(data, d.ftxt)
   endfor
   let b:outline_winid = winnr
   let b:outline_data = a:data
