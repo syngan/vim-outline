@@ -3,6 +3,7 @@ set cpo&vim
 
 let s:def = {}
 let s:def['_'] = {
+      \ 'debug': 0,
       \ 'bufname': '[outline]',
       \ 'split': '',
       \ 'outputter': 'buffer',
@@ -12,8 +13,14 @@ let s:def['_'] = {
       \ 'kinds': '',
       \ 'cmdopt': ''}
 let s:def['python'] = {'kinds': '+cfm-vIixzl'}
-let s:def['tex'] = {'kinds': '+csub-pPGli', 'files': '*.tex'}
+let s:def['tex'] = {'kinds': '+csubl-pPGi', 'files': '*.tex', 'sort': function('outline#tex#sort')}
 let s:def['vim'] = {'kinds': '+acf-vmn'}
+
+function! s:debug(mes) abort " {{{
+  if s:get('debug')
+    silent! call vimconsole#log(printf('%s: %s', strftime("%T"), a:mes))
+  endif
+endfunction " }}}
 
 function! s:get(key) abort " {{{
   for def in [s:arg_conf, get(g:, 'outline', {}), s:def]
@@ -26,6 +33,17 @@ function! s:get(key) abort " {{{
   throw 'unknown key: ' . a:key
 endfunction " }}}
 
+function! s:has(key) abort " {{{
+  for def in [s:arg_conf, get(g:, 'outline', {}), s:def]
+    for ft in [&ft, '_']
+      if has_key(def, ft) && has_key(def[ft], a:key)
+        return 1
+      endif
+    endfor
+  endfor
+  return 0
+endfunction " }}}
+
 function! s:parse_ctags(tempfiles) abort " {{{
   let tempfiles = a:tempfiles
   let ret = []
@@ -33,18 +51,28 @@ function! s:parse_ctags(tempfiles) abort " {{{
   for i in range(len(liness[0]))
     let line = liness[0][i]
     if line[0] ==# '!'
+      " infomation of universal-ctags
       continue
     endif
+    " NOTE: pattern に \t が含まれていることがあるので,
+    "       split() で分割できない.
+    "     : text  filename  /^pattern$/;"  label
+    " -n  : text  filename  lnum;"         label
+    "     - label = lcsub
+    "     - pattern /^ \\caption....
+    let m = matchlist(line, '^.*\t\(\f\+\)\t/\^\(.*\)/;"\t\(\k\)')
+    if len(m) == 0
+      call s:debug(line)
+      throw 'unmatch'
+    endif
     let d = {}
-    let d.text = matchstr(line, '^[^\t]*\ze\t')
-    let idx = len(d.text) + 1
-    let d.filename = matchstr(line, '[^\t]*\ze\t', idx)
-    let idx += len(d.filename) + 1
-    let d.kind = line[-1:]
-    let d.text = matchstr(line, '\/^\zs[^\t]*\ze\$\/;', idx)
-    let d.text = substitute(d.text, '\\\\', '\\', 'g')
+    let d.filename = m[1]
+    let d.text = substitute(m[2], '\\\\', '\\', 'g')
+    let d.text = substitute(d.text, '\$$', '', '')
+    let d.kind = m[3]
     let line = liness[1][i]
-    let d.lnum = str2nr(matchstr(line, '^[^\t]*\t[^\t]*\t\zs\d*\ze;"'))
+    let tsv = split(line, '\t')
+    let d.lnum = str2nr(matchstr(tsv[2], '^\d\+\ze;"'))
     if d.text !~# '^\s*$'
       let ret += [d]
     endif
@@ -155,13 +183,20 @@ function! outline#do(conf) abort " {{{
   let cmd = printf(' -u --kinds-%s=%s %s ', &ft, kinds, s:get('cmdopt'))
 
   let tempfiles = [[tempname(), ''], [tempname(), ' -n']]
+  call s:debug(tempfiles)
   for dat in tempfiles
     let cmd2 = printf('%s %s%s -f %s %s', s:get('command'), cmd, dat[1], dat[0], files)
   " let cmd = s:get('command') . ' -f ' . tempfile . ' -u -n '
+    call s:debug(cmd2)
     call system(cmd2)
   endfor
 
   let ret = s:parse_ctags(tempfiles)
+  if s:has('sort')
+    call s:debug('sort start')
+    let ret = s:get('sort')(ret, files)
+    call s:debug('sort end')
+  endif
   return s:output(ret, a:conf)
 endfunction " }}}
 
