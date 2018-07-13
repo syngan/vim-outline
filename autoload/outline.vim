@@ -68,6 +68,7 @@ function! s:parse_ctags(tempfiles) abort " {{{
   let liness = [readfile(tempfiles[0][0]), readfile(tempfiles[1][0])]
 
   let format = s:get('format')
+  let dold = {'filename': '', 'lnum': -1}
 
   for i in range(len(liness[0]))
     let line = liness[0][i]
@@ -95,7 +96,10 @@ function! s:parse_ctags(tempfiles) abort " {{{
       let tsv = split(liness[1][i], '\t')
       let d.lnum = str2nr(matchstr(tsv[2], '^\d\+\ze;"'))
       let d.ftxt = s:format(d, format)
-      let ret += [d]
+      if dold.lnum != d.lnum || dold.filename != d.filename
+        let ret += [d]
+        let dold = d
+      endif
     endif
   endfor
   return ret
