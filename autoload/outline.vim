@@ -132,10 +132,6 @@ endfunction " }}}
 function! outline#do(conf) abort " {{{
   let s:arg_conf = {&ft: a:conf}
   let kinds = s:get('kinds')
-  if kinds == ''
-    echo printf('dare? ft=%s bufname=%s', &ft, bufname(''))
-    return
-  endif
   let f = s:get('files')
   if f =~# '%'
     let files = glob(f)
@@ -144,12 +140,17 @@ function! outline#do(conf) abort " {{{
     let files = glob(printf('%s/%s', dir, s:get('files')))
   endif
   let files = substitute(files, '\n', ' ', 'g')
-  let cmd = printf(' -u --kinds-%s=%s %s ', &ft, kinds, s:get('cmdopt'))
+
+  if kinds =~# '^\s*$'
+    let cmd = printf('-u %s', s:get('cmdopt'))
+  else
+    let cmd = printf('-u --kinds-%s=%s %s', &ft, kinds, s:get('cmdopt'))
+  endif
 
   let tempfiles = [[tempname(), ''], [tempname(), ' -n']]
   call s:debug(tempfiles)
   for dat in tempfiles
-    let cmd2 = printf('%s %s%s -f %s %s', s:get('command'), cmd, dat[1], dat[0], files)
+    let cmd2 = printf('%s %s -f %s%s %s', s:get('command'), cmd, dat[0], dat[1], files)
   " let cmd = s:get('command') . ' -f ' . tempfile . ' -u -n '
     call s:debug(cmd2)
     call system(cmd2)
