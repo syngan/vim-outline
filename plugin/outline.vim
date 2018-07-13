@@ -1,7 +1,7 @@
 let s:save_cpo = &cpo
 set cpo&vim
 
-command! -nargs=* Outline call outline#command(<q-args>)
+command! -nargs=* -complete=customlist,outline#complete Outline call outline#command(<q-args>)
 
 let &cpo = s:save_cpo
 unlet s:save_cpo

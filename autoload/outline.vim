@@ -212,6 +212,17 @@ function! outline#command(qargs) abort " {{{
   return outline#do(conf)
 endfunction " }}}
 
+function! outline#complete(arg, ...) abort " {{{
+  if a:arg =~# '^-outputter='
+    return map(['buffer', 'quickfix', 'loclist'], '"-outputter=" . v:val')
+  elseif a:arg =~# '^-format='
+    return map(['%l: %m', '%f:%l: %m', '%F:%l: %m'], '"-format=''" . v:val . "''"')
+  else
+    return ['-format=', '-cmdopt=', '-kinds=', '-outputter=', '-split=', '-bufname=']
+  endif
+endfunction " }}}
+
+
 let &cpo = s:save_cpo
 unlet s:save_cpo
 
