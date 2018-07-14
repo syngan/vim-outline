@@ -101,7 +101,6 @@ endpython
 endfunction " }}}
 
 function! outline#tex#sort(data, files) abort " {{{
-
   " 開いていないファイルの解析は, :enew? readfile?
   " NOTE readfile してから for すると倍くらい遅い
   " とりあえずおそい
@@ -136,59 +135,7 @@ function! outline#tex#sort(data, files) abort " {{{
     endif
   endfor
   return sort(data, {i1, i2 -> i1.idx - i2.idx})
-
-"  call s:debug('enew ' . len(fnames))
-"  let winnr = win_getid()
-"  new
-"  try
-"    let finfo = {}
-"    let maininfo = []
-"    for ftbl in fnames
-"      silent % delete _
-"      let fname = ftbl['fname']
-"      call s:debug(fname)
-"      silent! execute ':r ' . fname
-"      silent 1 delete _
-"      let finfo[fname] = []
-"      while 1
-"        let ret = search('\c^[^%]*\\\(input\|include\|documentclass\|documentstyle\)\>', 'We')
-"        if ret == 0
-"          break
-"        endif
-"        let text = getline('.')
-"        let lnum = line('.')
-"        if text =~# '\\input\>'
-"          call add(finfo[fname], {'type': 'input', 'lnum': lnum, 'i': fname['i']})
-"        else
-"          call add(maininfo, {'type': 'main', 'lnum': lnum, 'i': fname['i']})
-"        endif
-"      endwhile
-"    endfor
-"  finally
-"    quit!
-"    call win_gotoid(winnr)
-"  endtry
-"  call s:debug('readfile ' . len(fnames))
-"
-"  try
-"    let finfo = {}
-"    let maininfo = []
-"    for ftbl in fnames
-"      let fname = ftbl['fname']
-"      call s:debug(fname)
-"      let lines = readfile(fname)
-"      for i in range(len(lines))
-"        if lines[i] =~# '\c^[^%]*\\input\>'
-"          call add(finfo[fname], {'type': 'input', 'lnum': i, 'i': fname['i']})
-"        elseif lines[i] =~# '\c^[^%]*\\document\(style\|class\)\>'
-"          call add(maininfo, {'type': 'main', 'lnum': i, 'i': fname['i']})
-"        endif
-"      endfor
-"    endfor
-"  finally
-"  endtry
 endfunction " }}}
-
 
 let &cpo = s:save_cpo
 unlet s:save_cpo
