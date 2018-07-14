@@ -65,7 +65,7 @@ endfunction " }}}
 function! s:parse_ctags(tempfiles) abort " {{{
   let tempfiles = a:tempfiles
   let ret = []
-  let liness = [readfile(tempfiles[0][0]), readfile(tempfiles[1][0])]
+  let liness = map(tempfiles, {key, val -> readfile(val.f)})
 
   let format = s:get('format')
   let dold = {'filename': '', 'lnum': -1}
@@ -129,6 +129,10 @@ function! s:output(data, conf) abort " {{{
   endif
 endfunction " }}}
 
+function! outline#disp(ch, msg) abort " {{{
+  echom a:ch . ": " . a:msg
+endfunction " }}}
+
 function! outline#do(conf) abort " {{{
   let s:arg_conf = {&ft: a:conf}
   let kinds = s:get('kinds')
@@ -147,14 +151,22 @@ function! outline#do(conf) abort " {{{
     let cmd = printf('-u --kinds-%s=%s %s', &ft, kinds, s:get('cmdopt'))
   endif
 
-  let tempfiles = [[tempname(), ''], [tempname(), ' -n']]
-  call s:debug(tempfiles)
+  let tempfiles = [{'c': ''}, {'c': ' -n'}]
   for dat in tempfiles
-    let cmd2 = printf('%s %s -f %s%s %s', s:get('command'), cmd, dat[0], dat[1], files)
+    let dat.f = tempname()
+    let cmd2 = printf('%s %s -f %s%s %s', s:get('command'), cmd, dat.f, dat.c, files)
   " let cmd = s:get('command') . ' -f ' . tempfile . ' -u -n '
     call s:debug(cmd2)
-    call system(cmd2)
+    let dat.j = job_start(cmd2, {"callback": "outline#disp"})
   endfor
+
+  for dat in tempfiles
+    while job_status(dat.j) == "run"
+      sleep 100m
+    endwhile
+  endfor
+
+  call s:debug("end")
 
   let ret = s:parse_ctags(tempfiles)
   if s:has('sort')
@@ -226,7 +238,6 @@ function! outline#complete(arg, ...) abort " {{{
     return ['-format=', '-cmdopt=', '-kinds=', '-outputter=', '-split=', '-bufname=']
   endif
 endfunction " }}}
-
 
 let &cpo = s:save_cpo
 unlet s:save_cpo
