@@ -55,6 +55,17 @@ function! s:has(key) abort " {{{
   return 0
 endfunction " }}}
 
+function! s:get_kinds() abort " {{{
+  " +- がないときは, + だけが指定されたとして, - を補完する.
+  let kinds = s:get('kinds')
+  if kinds =~# '^[A-Za-z]\+$' && has_key(s:def, &ft) && !has_key(s:def[&ft], 'kinds')
+    let org = substitute(s:def[&ft].kinds, '[+-]', '', 'g')
+    let org = substitute(org, '[' . kinds . ']', '', 'g')
+    let kinds = printf('+%s-%s', kinds, org)
+  endif
+  return kinds
+endfunction " }}}
+
 function! s:format(d, format) abort " {{{
   let t = a:format
   let t = substitute(t, '%k', a:d.kind, 'g')
@@ -138,7 +149,7 @@ endfunction " }}}
 
 function! outline#do(conf) abort " {{{
   let s:arg_conf = {&ft: a:conf}
-  let kinds = s:get('kinds')
+  let kinds = s:get_kinds()
   let f = s:get('files')
   if f =~# '%'
     let files = glob(f)
