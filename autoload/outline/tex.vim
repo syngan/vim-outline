@@ -26,7 +26,7 @@ function! s:tex_sort_main(fname, idx, finfo, data) abort " {{{
       endfor
     endif
   endfor
-  while a:data[i]['filename'] == a:fname
+  while i < len(a:data) && a:data[i]['filename'] == a:fname
     let a:data[i]['idx'] = idx
     let idx += 1
     let i += 1
@@ -34,25 +34,40 @@ function! s:tex_sort_main(fname, idx, finfo, data) abort " {{{
   return idx
 endfunction " }}}
 
-function! s:tex_filter_data(data) abort " {{{
+function! s:make_patterns(pkinds) abort " {{{
+  let pkinds = '^[' . a:pkinds . ']$'
+  let patterns = []
+  for [kind, pattern] in [
+        \ ['c', 'chapter'],
+        \ ['s', 'section'],
+        \ ['u', 'subsection'],
+        \ ['b', 'subsubsection'],
+        \ ['p', 'part']]
+    if pkinds =~# kind
+      call add(patterns, [kind, '\\' . pattern . '\>'])
+    endif
+  endfor
+  return patterns
+endfunction " }}}
+
+function! s:tex_filter_data(data, pkinds) abort " {{{
   let od = {'kind': 'l', 'filename': '', 'lnum': -1}
+  let patterns = s:make_patterns(a:pkinds)
+
   for d in a:data
     if d.kind == 'l'
-      if d.text =~# '\\chapter\>'
-        let d.kind = 'c'
-      elseif d.text =~# '\\section\>'
-        let d.kind = 's'
-      elseif d.text =~# '\\subsection\>'
-        let d.kind = 'u'
-      elseif d.text =~# '\\subsubsection\>'
-        let d.kind = 'b'
-      endif
-    elseif d.kind !~# '[csub]'
-      throw Exception(d.kind)
+      for [kind, pattern] in patterns
+        if d.text =~# pattern
+          let d.kind = kind
+        endif
+      endfor
+    elseif d.kind !~# '[csubi]'
+      throw printf('Outline: tex: unknown kind: %s', d.kind)
     endif
     if od.lnum == d.lnum && od.filename == d.filename
+      " 重複を見つけた.
       if od.kind == d.kind
-        let od.kind = 'l'
+        let od.kind = 'l'  " od を消す
       else
         for k in ['c', 's', 'u', 'b']
           if od.kind == k
@@ -72,6 +87,10 @@ function! s:tex_filter_data(data) abort " {{{
 endfunction " }}}
 
 function! s:tex_get_finfo(files) abort " {{{
+" 開いていないファイルの解析は, :enew? readfile?
+" NOTE readfile してから for すると倍くらい遅い
+" とりあえずおそい
+  let finfo = {}
   python3 << endpython
 import re, vim
 files = vim.eval('a:files')
@@ -100,19 +119,34 @@ endpython
   return finfo
 endfunction " }}}
 
-function! outline#tex#sort(data, files) abort " {{{
-  " 開いていないファイルの解析は, :enew? readfile?
-  " NOTE readfile してから for すると倍くらい遅い
-  " とりあえずおそい
-  let files = split(a:files, ' ')
+function! s:parse_kinds(kinds) abort " {{{
+  let ret = ['', '']
+  let idx = 0  " +=0, -=1
+  for c in split(a:kinds, '\zs')
+    if c == '+'
+      let idx = 0
+    elseif c == '-'
+      let idx = 1
+    else
+      let ret[idx] .= c
+    endif
+  endfor
+  return ret
+endfunction " }}}
 
+function! outline#tex#sort(data, files, kinds) abort " {{{
+  " data: ctags の解析結果 (string)
+  " files: ctags の引数で渡したファイル
+  " kinds: ctags --kinds=$kinds
+  let files = split(a:files, ' ')
+  let kinds = s:parse_kinds(a:kinds)
+
+  " main(\documentclass), \include
   let finfo = s:tex_get_finfo(files)
 
   " data の情報を追加
-  " csub あたりが, l のほうが優先されてしまうので,
-  " 更新する
-
-  let data = s:tex_filter_data(a:data)
+  " csub より, l のほうが優先されてしまうことがある
+  let data = s:tex_filter_data(a:data, kinds[0])
 
   let fname = ''
   for i in range(len(data))

@@ -14,7 +14,9 @@ let s:def['_'] = {
       \ 'cmdopt': '',
       \ 'format': '%l: %m'}
 let s:def['python'] = {'kinds': '+cfm-vIixzl'}
-let s:def['tex'] = {'kinds': '+csubl-pPGi', 'files': '*.tex', 'format': '%f:%l: %m'}
+" csub が l に紛れることがあるので, l 必須
+" i は \input を返してくれない
+let s:def['tex'] = {'kinds': '+pcsubl-PG', 'files': '*.tex', 'format': '%f:%l: %m'}
 if has('python3')
   let s:def['tex']['sort'] = function('outline#tex#sort')
 endif
@@ -31,6 +33,7 @@ function! s:debug(mes) abort " {{{
 endfunction " }}}
 
 function! s:get(key) abort " {{{
+  " 引数 -> g:outline -> s:def
   for def in [s:arg_conf, get(g:, 'outline', {}), s:def]
     for ft in [&ft, '_']
       if has_key(def, ft) && has_key(def[ft], a:key)
@@ -76,8 +79,8 @@ function! s:parse_ctags(tempfiles) abort " {{{
       " infomation of universal-ctags
       continue
     endif
-    " NOTE: pattern $B$K(B \t $B$,4^$^$l$F$$$k$3$H$,$"$k$N$G(B,
-    "       split() $B$GJ,3d$G$-$J$$(B.
+    " NOTE: pattern に \t が含まれていることがあるので,
+    "       split() で分割できない.
     "     : text  filename  /^pattern$/;"  label
     " -n  : text  filename  lnum;"         label
     "     - label = lcsub
@@ -171,7 +174,7 @@ function! outline#do(conf) abort " {{{
   let ret = s:parse_ctags(tempfiles)
   if s:has('sort')
     call s:debug('sort start')
-    let ret = s:get('sort')(ret, files)
+    let ret = s:get('sort')(ret, files, s:get('kinds'))
     call s:debug('sort end')
   endif
   return s:output(ret, a:conf)
